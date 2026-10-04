@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>错题本</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232563eb'/%3E%3Ctext x='16' y='22' font-size='15' text-anchor='middle' fill='white' font-family='sans-serif'%3E错%3C/text%3E%3C/svg%3E">
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<style>
+  :root{--blue:#2563eb;--bg:#f5f7fa;--line:#e2e8f0;--text:#1f2937;--muted:#6b7280}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);padding:16px;max-width:860px;margin:0 auto}
+  .card{background:#fff;border-radius:12px;padding:16px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+  h1{font-size:20px;margin-bottom:4px}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:12px}
+  .form-item{margin-bottom:14px}
+  label{display:block;margin-bottom:6px;font-weight:600;font-size:14px}
+  input[type=text],input[type=search],textarea{width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:16px;font-family:inherit}
+  textarea{min-height:90px;resize:vertical}
+  input[type=file]{width:100%;padding:8px;border:1px dashed #cbd5e1;border-radius:8px;background:#fafbfc;font-size:14px}
+  .btn{display:inline-block;padding:10px 16px;border:none;border-radius:8px;background:var(--blue);color:#fff;font-size:15px;cursor:pointer}
+  .btn:disabled{opacity:.6;cursor:wait}
+  .btn.gray{background:#9ca3af}
+  .btn.outline{background:#fff;color:var(--blue);border:1px solid var(--blue)}
+  .btn.small{padding:6px 12px;font-size:13px}
+  .preview{max-width:100%;max-height:260px;margin:8px 0;border-radius:8px;display:none}
+  .video-box video{max-width:100%;border-radius:8px;background:#000}
+  .tip{color:var(--muted);font-size:14px;margin-top:6px}
+  .item{border:1px solid var(--line);border-radius:10px;padding:14px;margin:10px 0;background:#fff}
+  .tag{display:inline-block;background:#dbeafe;color:#1d4ed8;padding:3px 8px;border-radius:6px;font-size:12px;margin:2px}
+  .row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+  .kv{font-size:14px;margin:3px 0;color:var(--text)}
+  .kv b{color:#374151}
+  .hidden{display:none!important}
+  .search{width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:15px;margin-bottom:8px}
+  .empty{color:var(--muted);text-align:center;padding:24px 0;font-size:14px}
+  @media (max-width:640px){
+    .btn{min-height:44px}
+    .btn.small{min-height:44px;min-width:44px}
+    .row{justify-content:flex-start}
+  }
+</style>
+</head>
+<body>
+<header class="card">
+  <h1>错题本</h1>
+  <div class="sub">数据保存在当前浏览器（本机），换设备或清理浏览器缓存前，请先「导出备份」。</div>
+</header>
+
+<div class="card">
+  <h2 style="font-size:16px;margin-bottom:12px">添加错题</h2>
+  <div class="form-item">
+    <label>题目图片</label>
+    <input type="file" id="imgFile" accept="image/*">
+    <img id="imgPreview" class="preview" alt="题目图片">
+  </div>
+  <div class="form-item">
+    <button class="btn outline" id="ocrBtn" type="button">识别图片文字（OCR）</button>
+    <div class="tip">打印题识别效果好；手写、模糊、倾斜的图片可能有误差，识别后可手动修改。</div>
+  </div>
+  <div class="form-item">
+    <label>题目内容</label>
+    <textarea id="questionText" placeholder="识别结果会自动填到这里，可手动修改"></textarea>
+  </div>
+  <div class="form-item">
+    <label>错因分析</label>
+    <textarea id="reasonText" placeholder="例如：单位换算看错了、公式记反了"></textarea>
+  </div>
+  <div class="form-item">
+    <label>知识点</label>
+    <input type="text" id="tagInput" placeholder="例如：分数应用题、整除、几何">
+  </div>
+  <div class="form-item">
+    <label>学生</label>
+    <input type="text" id="studentInput" placeholder="学生名字">
+  </div>
+  <div class="form-item">
+    <label>讲解视频（MP4 / MOV）</label>
+    <input type="file" id="videoFile" accept="video/mp4,video/mov,video/*">
+    <div class="video-box"><video id="videoPreview" class="hidden" controls></video></div>
+    <div class="tip">视频保存在当前浏览器内，刷新页面后仍可播放；建议单条 50MB 以内。</div>
+  </div>
+  <button class="btn" id="saveBtn" type="button">保存错题</button>
+</div>
+
+<div class="card">
+  <div class="row" style="margin-bottom:10px">
+    <h2 style="font-size:16px">错题列表</h2>
+    <span>
+      <button class="btn outline small" id="exportBtn" type="button">导出备份</button>
+      <button class="btn outline small" id="importBtn" type="button">导入备份</button>
+      <input type="file" id="importFile" accept=".json,application/json" class="hidden">
+    </span>
+  </div>
+  <input type="search" id="searchInput" class="search" placeholder="搜索：学生 / 知识点 / 题目 / 错因">
+  <div id="listWrap"><div class="empty">还没有错题，先在上方添加一条。</div></div>
+</div>
+
+<script>
+var KEY = 'errorBook_v2';
+function getRecords(){ try{ return JSON.parse(localStorage.getItem(KEY)||'[]') }catch(e){ return [] } }
+function setRecords(arr){
+  try{ localStorage.setItem(KEY, JSON.stringify(arr)) }
+  catch(e){ alert('本浏览器存储空间不足，无法保存更多错题，请先「导出备份」或删除一些错题') }
+}
+
+/* 视频用 IndexedDB 保存，刷新后仍可播放 */
+var DB_NAME='errorBookDB', STORE='videos', _dbPromise=null;
+function openDB(){
+  if(_dbPromise) return _dbPromise;
+  _dbPromise=new Promise(function(resolve,reject){
+    var req=indexedDB.open(DB_NAME,1);
+    req.onupgradeneeded=function(e){ e.target.result.createObjectStore(STORE,{keyPath:'id'}) };
+    req.onsuccess=function(){ resolve(req.result) };
+    req.onerror=function(){ reject(req.error) };
+  });
+  return _dbPromise;
+}
+function putVideo(id,blob){
+  return openDB().then(function(db){ return new Promise(function(resolve,reject){
+    var tx=db.transaction(STORE,'readwrite');
+    tx.objectStore(STORE).put({id:id,blob:blob});
+    tx.oncomplete=resolve;
+    tx.onerror=function(){ reject(tx.error) };
+  }) });
+}
+function getVideo(id){
+  return openDB().then(function(db){ return new Promise(function(resolve,reject){
+    var tx=db.transaction(STORE,'readonly');
+    var r=tx.objectStore(STORE).get(id);
+    r.onsuccess=function(){ resolve(r.result?r.result.blob:null) };
+    r.onerror=function(){ reject(r.error) };
+  }) });
+}
+function delVideo(id){
+  return openDB().then(function(db){ return new Promise(function(resolve,reject){
+    var tx=db.transaction(STORE,'readwrite');
+    tx.objectStore(STORE).delete(id);
+    tx.oncomplete=resolve;
+    tx.onerror=function(){ reject(tx.error) };
+  }) });
+}
+
+/* 图片预览 */
+var imgFile=document.getElementById('imgFile'), imgPreview=document.getElementById('imgPreview');
+imgFile.addEventListener('change', function(){
+  var f=imgFile.files[0]; if(!f) return;
+  imgPreview.src=URL.createObjectURL(f);
+  imgPreview.style.display='block';
+});
+
+/* 图片压缩成 dataURL，保证刷新后仍显示 */
+function compressImage(file, maxW, quality){
+  maxW=maxW||1000; quality=quality||0.78;
+  return new Promise(function(resolve,reject){
+    var img=new Image(), url=URL.createObjectURL(file);
+    img.onload=function(){
+      URL.revokeObjectURL(url);
+      var scale=Math.min(1,maxW/img.width);
+      var c=document.createElement('canvas');
+      c.width=Math.round(img.width*scale);
+      c.height=Math.round(img.height*scale);
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+      resolve(c.toDataURL('image/jpeg',quality));
+    };
+    img.onerror=function(){ URL.revokeObjectURL(url); reject(new Error('无法读取该图片，请换 JPG/PNG 或重新截图')) };
+    img.src=url;
+  });
+}
+
+/* OCR 识别题目文字 */
+var ocrBtn=document.getElementById('ocrBtn');
+ocrBtn.addEventListener('click', function(){
+  var f=imgFile.files[0];
+  if(!f){ alert('请先上传题目图片'); return }
+  ocrBtn.disabled=true; ocrBtn.textContent='识别中…';
+  Tesseract.recognize(f,'chi_sim+eng').then(function(res){
+    var text=(res.data.text||'').trim();
+    document.getElementById('questionText').value=text;
+    ocrBtn.disabled=false; ocrBtn.textContent='识别图片文字（OCR）';
+    if(!text) alert('没有识别出文字，可能是图片模糊或倾斜，请重拍后再试');
+  }).catch(function(e){
+    ocrBtn.disabled=false; ocrBtn.textContent='识别图片文字（OCR）';
+    alert('识别失败：'+e.message);
+  });
+});
+
+/* 视频选择与预览 */
+var videoFile=document.getElementById('videoFile'), videoPreview=document.getElementById('videoPreview'), currentVideo=null;
+videoFile.addEventListener('change', function(){
+  var f=videoFile.files[0]; if(!f) return;
+  currentVideo=f;
+  videoPreview.src=URL.createObjectURL(f);
+  videoPreview.classList.remove('hidden');
+});
+
+/* 保存错题 */
+document.getElementById('saveBtn').addEventListener('click', function(){
+  var imgPromise = imgFile.files[0] ? compressImage(imgFile.files[0]) : Promise.resolve('');
+  imgPromise.then(function(imgData){
+    var id=Date.now();
+    var rec={
+      id:id,
+      student:document.getElementById('studentInput').value.trim(),
+      tag:document.getElementById('tagInput').value.trim(),
+      question:document.getElementById('questionText').value.trim(),
+      reason:document.getElementById('reasonText').value.trim(),
+      img:imgData||'',
+      hasVideo:!!currentVideo,
+      videoName:currentVideo?currentVideo.name:''
+    };
+    var saveVideo = currentVideo ? putVideo(id,currentVideo) : Promise.resolve();
+    saveVideo.then(function(){
+      var arr=getRecords(); arr.unshift(rec); setRecords(arr);
+      render();
+      alert('保存成功');
+      document.getElementById('imgFile').value=''; imgPreview.removeAttribute('src'); imgPreview.style.display='none';
+      document.getElementById('videoFile').value=''; videoPreview.removeAttribute('src'); videoPreview.classList.add('hidden'); currentVideo=null;
+      document.getElementById('questionText').value='';
+      document.getElementById('reasonText').value='';
+      document.getElementById('tagInput').value='';
+      document.getElementById('studentInput').value='';
+    }).catch(function(e){ alert('保存失败：'+e.message) });
+  }).catch(function(e){ alert(e.message) });
+});
+
+/* 渲染列表 */
+function render(){
+  var list=getRecords();
+  var kw=(document.getElementById('searchInput').value||'').trim().toLowerCase();
+  var wrap=document.getElementById('listWrap');
+  if(!list.length){ wrap.innerHTML='<div class="empty">还没有错题，先在上方添加一条。</div>'; return }
+  var filtered=list.filter(function(r){
+    if(!kw) return true;
+    return (r.student+' '+r.tag+' '+r.question+' '+r.reason).toLowerCase().indexOf(kw)>=0;
+  });
+  if(!filtered.length){ wrap.innerHTML='<div class="empty">没有找到匹配的错题。</div>'; return }
+  wrap.innerHTML='';
+  filtered.forEach(function(r){
+    var d=document.createElement('div');
+    d.className='item';
+    d.innerHTML=
+      '<div class="row"><span class="tag">'+(r.tag||'未标知识点')+'</span><span class="kv">学生：'+(r.student||'未填写')+'</span></div>'+
+      '<div class="kv"><b>题目：</b>'+(r.question||'无')+'</div>'+
+      '<div class="kv"><b>错因：</b>'+(r.reason||'无')+'</div>'+
+      (r.img?'<img class="preview" style="display:block" src="'+r.img+'" alt="题目图片">':'')+
+      (r.hasVideo?'<div class="video-box" style="margin-top:8px"><video id="v-'+r.id+'" controls></video><div class="tip">讲解视频：'+(r.videoName||'')+'</div></div>':'')+
+      '<div style="margin-top:10px"><button class="btn gray small" data-del="'+r.id+'" type="button">删除</button></div>';
+    wrap.appendChild(d);
+    if(r.hasVideo){ loadVideo(r.id, d.querySelector('#v-'+r.id)) }
+  });
+  wrap.querySelectorAll('[data-del]').forEach(function(b){
+    b.addEventListener('click', function(){ removeItem(Number(b.getAttribute('data-del'))) });
+  });
+}
+function loadVideo(id, el){
+  getVideo(id).then(function(blob){
+    if(blob){ el.src=URL.createObjectURL(blob); el.style.display='block' }
+    else{ el.style.display='none' }
+  }).catch(function(){ el.style.display='none' });
+}
+function removeItem(id){
+  if(!confirm('确定删除这条错题？')) return;
+  setRecords(getRecords().filter(function(r){return r.id!==id}));
+  delVideo(id).catch(function(){});
+  render();
+}
+document.getElementById('searchInput').addEventListener('input', render);
+
+/* 导出 / 导入备份 */
+document.getElementById('exportBtn').addEventListener('click', function(){
+  var list=getRecords();
+  if(!list.length){ alert('还没有错题'); return }
+  Promise.all(list.map(function(r){
+    if(!r.hasVideo) return Promise.resolve({id:r.id, base64:''});
+    return getVideo(r.id).then(function(blob){
+      if(!blob) return {id:r.id, base64:''};
+      return new Promise(function(resolve,reject){
+        var rd=new FileReader();
+        rd.onload=function(){ resolve({id:r.id, base64:rd.result}) };
+        rd.onerror=function(){ reject(rd.error) };
+        rd.readAsDataURL(blob);
+      });
+    });
+  })).then(function(vids){
+    var videoMap={};
+    vids.forEach(function(v){ if(v.base64){ videoMap[v.id]=v.base64 } });
+    var data={exportedAt:new Date().toISOString(), records:list, videos:videoMap};
+    var blob=new Blob([JSON.stringify(data)],{type:'application/json'});
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='错题本备份-'+new Date().toISOString().slice(0,10)+'.json';
+    a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href) }, 3000);
+  }).catch(function(e){ alert('导出失败：'+e.message) });
+});
+
+document.getElementById('importBtn').addEventListener('click', function(){
+  document.getElementById('importFile').click();
+});
+document.getElementById('importFile').addEventListener('change', function(){
+  var f=this.files[0]; if(!f) return;
+  var rd=new FileReader();
+  rd.onload=function(){
+    try{
+      var data=JSON.parse(rd.result);
+      if(!data.records || !Array.isArray(data.records)) throw new Error('文件格式不对，请选择导出的备份文件');
+      var vids=data.videos||{};
+      Promise.all(Object.keys(vids).map(function(k){
+        var raw=vids[k];
+        if(raw && raw.indexOf('data:')===0){
+          return fetch(raw).then(function(r){ return r.blob() }).then(function(b){ return putVideo(Number(k), b) });
+        }
+        return Promise.resolve();
+      })).then(function(){
+        var records=data.records.map(function(r){
+          return { id:r.id, student:r.student||'', tag:r.tag||'', question:r.question||'', reason:r.reason||'', img:r.img||'', hasVideo:!!vids[r.id], videoName:r.videoName||'' };
+        });
+        setRecords(records);
+        render();
+        alert('导入成功，共 '+records.length+' 条错题');
+      }).catch(function(e){ alert('导入失败：'+e.message) });
+    }catch(e){ alert('导入失败：'+e.message) }
+  };
+  rd.readAsText(f);
+  this.value='';
+});
+
+render();
+</script>
+</body>
+</html>
